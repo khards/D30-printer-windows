@@ -104,6 +104,12 @@ default:
 venv\Scripts\python print_batch_label.py --batch 123456 --best-before 04-09-26
 ```
 
+Add `--product` to print a centered, underlined product line above the batch table (no "Product:" label):
+
+```powershell
+venv\Scripts\python print_batch_label.py --batch 123456 --best-before 04-09-26 --product "Olive Oil 500ml"
+```
+
 `--best-before` is printed exactly as given (no date parsing/validation),
 so pass it already formatted the way you want it on the label. `--length`,
 `--font`, `--count`, and `--pause-ms` all work the same as `print_text.py`
@@ -122,14 +128,14 @@ venv\Scripts\python server.py
 Then open `http://localhost:8787/` for the full docs — parameters,
 examples, and a live test form. In short: `GET`, `POST`, or `PUT` to
 `/api/print` with `mode` (`text` or `batch`) plus that mode's fields
-(`text`, or `batch` + `best_before`), sent as a JSON body or as query
+(`text`, or `batch` + `best_before`, plus optional centered `product`), sent as a JSON body or as query
 string / form fields, e.g.:
 
 ```js
 fetch("http://localhost:8787/api/print", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ mode: "batch", batch: "123456", best_before: "04-09-26" }),
+  body: JSON.stringify({ mode: "batch", batch: "123456", best_before: "04-09-26", product: "Olive Oil 500ml" }),
 })
 ```
 

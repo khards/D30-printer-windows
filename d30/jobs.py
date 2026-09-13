@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 from PIL import Image
 
 from .discovery import resolve_port
-from .image import render_text_label, render_two_column_label
+from .image import render_batch_label, render_text_label
 from .printer import D30Printer
 
 
@@ -29,6 +29,7 @@ def print_batch(
     batch: str,
     best_before: str,
     *,
+    product: Optional[str] = None,
     port: Optional[str] = None,
     font_path: Optional[str] = None,
     length_mm: float = 30,
@@ -36,8 +37,13 @@ def print_batch(
     pause_s: float = 0.25,
 ) -> str:
     """Render and print a Batch/Best-Before label. Returns the COM port used."""
-    rows: List[Tuple[str, str]] = [("Batch:", batch), ("Best Before:", best_before)]
-    image = render_two_column_label(rows, font_path=font_path, length_mm=length_mm)
+    image = render_batch_label(
+        batch,
+        best_before,
+        product=product,
+        font_path=font_path,
+        length_mm=length_mm,
+    )
     return _send(image, port, count, pause_s)
 
 

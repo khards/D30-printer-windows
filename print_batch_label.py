@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Print a "Batch <n> / Best Before: <date>" label on a Phomemo D30.
 
+Optionally includes a "Product:" line above the batch line.
 Defaults to a 30mm label length, matching 14x30mm stock.
 """
 
@@ -17,6 +18,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--batch", required=True, help="Batch number, e.g. 123456")
     parser.add_argument("--best-before", required=True, help="Best-before date as you want it printed, e.g. 04-09-26")
+    parser.add_argument("--product", default=None, help="Optional product name/code to print above the batch line")
     parser.add_argument("--port", default=None, help="COM port the printer is bound to, e.g. COM4. Auto-detected if omitted.")
     parser.add_argument("--font", default=None, help="Path to a TTF font file (defaults to Arial)")
     parser.add_argument("--length", type=float, default=30, help="Label length in mm (default: 30, for 14x30mm labels)")
@@ -30,6 +32,7 @@ def main() -> None:
         jobs.print_batch(
             args.batch,
             args.best_before,
+            product=args.product,
             port=port,
             font_path=args.font,
             length_mm=args.length,

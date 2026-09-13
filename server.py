@@ -81,15 +81,20 @@ def _run_print_job(params: dict) -> dict:
         best_before = params.get("best_before")
         if not batch or not best_before:
             raise BadRequest("'batch' and 'best_before' are required for mode=batch")
+        product = params.get("product") or None
         used_port = jobs.print_batch(
             str(batch),
             str(best_before),
+            product=str(product) if product else None,
             port=com_port,
             length_mm=length if length is not None else 30,
             count=count,
             pause_s=pause_ms / 1000,
         )
-        return {"mode": "batch", "com_port": used_port, "count": count}
+        result = {"mode": "batch", "com_port": used_port, "count": count}
+        if product:
+            result["product"] = product
+        return result
 
     raise BadRequest(f"unknown mode {mode!r}, expected 'text' or 'batch'")
 

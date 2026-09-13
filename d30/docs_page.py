@@ -41,6 +41,7 @@ _TEMPLATE = """<!doctype html>
 <tr><td><code>text</code></td><td>string</td><td>if mode=text</td><td>Label text. Use <code>\\n</code> for a line break.</td></tr>
 <tr><td><code>batch</code></td><td>string</td><td>if mode=batch</td><td>Batch number</td></tr>
 <tr><td><code>best_before</code></td><td>string</td><td>if mode=batch</td><td>Best-before date, printed exactly as given (no parsing)</td></tr>
+<tr><td><code>product</code></td><td>string</td><td>no</td><td>Optional product name/code, centered and underlined above the batch table when provided (no "Product:" label)</td></tr>
 <tr><td><code>length</code></td><td>number</td><td>no</td><td>Label length in mm (default: 40 for text, 30 for batch)</td></tr>
 <tr><td><code>count</code></td><td>integer</td><td>no</td><td>Number of copies to print (default: 1)</td></tr>
 <tr><td><code>pause_ms</code></td><td>number</td><td>no</td><td>Pause between copies in ms, for die-cut labels with no cut command (default: 250)</td></tr>
@@ -60,6 +61,7 @@ _TEMPLATE = """<!doctype html>
     mode: "batch",
     batch: "123456",
     best_before: "04-09-26",
+    product: "Olive Oil 500ml",
     count: 3
   })
 }).then(r =&gt; r.json()).then(console.log)</pre>
@@ -91,6 +93,7 @@ _TEMPLATE = """<!doctype html>
   <div id="fields-batch" style="display:none">
     <label>Batch<input id="f-batch" value="123456"></label>
     <label>Best before<input id="f-best-before" value="04-09-26"></label>
+    <label>Product (optional)<input id="f-product" value="Olive Oil 500ml" placeholder="e.g. Olive Oil 500ml"></label>
   </div>
 
   <label>Length (mm, blank = default)<input id="f-length" placeholder="e.g. 30"></label>
@@ -122,6 +125,8 @@ _TEMPLATE = """<!doctype html>
     if (modeSelect.value === "batch") {
       body.batch = document.getElementById("f-batch").value;
       body.best_before = document.getElementById("f-best-before").value;
+      const product = document.getElementById("f-product").value;
+      if (product) body.product = product;
     } else {
       body.text = document.getElementById("f-text").value;
     }

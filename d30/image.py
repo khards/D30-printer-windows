@@ -99,6 +99,92 @@ def render_two_column_label(
     return portrait
 
 
+def render_batch_label(
+    batch: str,
+    best_before: str,
+    *,
+    product: Optional[str] = None,
+    font_path: Optional[str] = None,
+    length_mm: Optional[float] = None,
+) -> Image.Image:
+    """Render a Batch/Best-Before label, optionally with a centered,
+    underlined product line above the batch table.
+
+    Layout in readable orientation:
+
+        [      This is the product name      ]
+        [             Batch: 123123123       ]
+        [      Best Before: 131-12-2026      ]
+
+    The product line spans the full label width, is centered, and is
+    underlined. The Batch/Best Before lines keep their familiar two-column
+    alignment below it. Long product names only shrink the product font,
+    not the batch/expiry text.
+    """
+    length_px = mm_to_px(length_mm) if length_mm is not None else DEFAULT_LABEL_LENGTH_PX
+
+    rows = [("Batch:", batch), ("Best Before:", best_before)]
+    if not product:
+        return render_two_column_label(rows, font_path=font_path, length_mm=length_mm)
+
+    # Compose in landscape so the readable layout maps directly to the canvas.
+    landscape = Image.new("L", (length_px, LABEL_WIDTH_PX), color=255)
+    draw = ImageDraw.Draw(landscape)
+
+    # Split the landscape height: product gets the top ~45%, batch table the rest.
+    product_h = max(round(LABEL_WIDTH_PX * 0.45), 1)
+    table_h = LABEL_WIDTH_PX - product_h
+
+    # Fit fonts independently so a long product name doesn't shrink the table.
+    product_font = _fit_font(
+        draw,
+        product,
+        font_path,
+        max(length_px - _MARGIN_LENGTH_PX, 1),
+        max(product_h - _MARGIN_WIDTH_PX, 1),
+    )
+    table_font, label_col_w, value_col_w, line_height = _fit_two_column_font(
+        draw,
+        rows,
+        font_path,
+        max(length_px - _MARGIN_LENGTH_PX, 1),
+        max(table_h - _MARGIN_WIDTH_PX, 1),
+    )
+
+    # Product line: centered, underlined.
+    draw.text(
+        (length_px / 2, product_h / 2),
+        product,
+        font=product_font,
+        fill=0,
+        anchor="mm",
+        align="center",
+    )
+    bbox = draw.textbbox((length_px / 2, product_h / 2), product, font=product_font, anchor="mm")
+    underline_y = bbox[3] + max(round(product_font.size / 8), 1)
+    draw.line([(bbox[0], underline_y), (bbox[2], underline_y)], fill=0, width=max(round(product_font.size / 10), 1))
+
+    # Batch / Best Before table: centered in the remaining lower area.
+    gap = max(round(table_font.size * 0.4), 4)
+    total_w = label_col_w + gap + value_col_w
+    total_h = line_height * len(rows)
+
+    start_x = length_px / 2 - total_w / 2
+    start_y = product_h + (table_h / 2 - total_h / 2)
+
+    label_right_x = start_x + label_col_w
+    value_left_x = label_right_x + gap
+
+    for i, (label, value) in enumerate(rows):
+        line_center_y = start_y + line_height * (i + 0.5)
+        draw.text((label_right_x, line_center_y), label, font=table_font, fill=0, anchor="rm")
+        draw.text((value_left_x, line_center_y), value, font=table_font, fill=0, anchor="lm")
+
+    portrait = landscape.rotate(270, expand=True)
+    assert portrait.size == (LABEL_WIDTH_PX, length_px)
+    return portrait
+
+
 def image_to_rows(image: Image.Image, threshold: int = 128) -> List[List[int]]:
     """Convert an image to rows of 0/1 pixels (1 = print dark), top to bottom."""
     if image.mode != "L":
