@@ -19,7 +19,7 @@ def resolve_port(explicit: Optional[str]) -> str:
     if explicit is not None:
         return explicit
 
-    print("No --port given, scanning for a connected printer...")
+    print("No --port given, looking for the D30's outgoing Bluetooth port...")
     try:
         port = discovery.resolve_port(None)
     except discovery.PortResolutionError as exc:

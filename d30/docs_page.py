@@ -45,7 +45,7 @@ _TEMPLATE = """<!doctype html>
 <tr><td><code>length</code></td><td>number</td><td>no</td><td>Label length in mm (default: 40 for text, 30 for batch)</td></tr>
 <tr><td><code>count</code></td><td>integer</td><td>no</td><td>Number of copies to print (default: 1)</td></tr>
 <tr><td><code>pause_ms</code></td><td>number</td><td>no</td><td>Pause between copies in ms, for die-cut labels with no cut command (default: 250)</td></tr>
-<tr><td><code>com_port</code></td><td>string</td><td>no</td><td>COM port, e.g. <code>COM4</code>. Auto-detected if omitted (fails with a 503 if that's ambiguous or nothing responds).</td></tr>
+<tr><td><code>com_port</code></td><td>string</td><td>no</td><td>COM port, e.g. <code>COM5</code>. The outgoing D30 Bluetooth port is auto-detected if omitted (503 if missing or ambiguous).</td></tr>
 </table>
 
 <h2>Examples</h2>

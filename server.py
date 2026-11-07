@@ -20,6 +20,17 @@ from d30.docs_page import render_docs_page
 app = Flask(__name__)
 
 
+def _error(message: str, status: int, notice: str):
+    app.logger.warning("Print request failed (%s): %s", status, message)
+    callback = app.config.get("PRINT_ERROR_CALLBACK")
+    if callback is not None:
+        try:
+            callback(notice)
+        except Exception:
+            app.logger.exception("Failed to display print error notification")
+    return jsonify(status="error", message=message), status
+
+
 class BadRequest(Exception):
     pass
 
@@ -122,13 +133,14 @@ def api_print():
     try:
         result = _run_print_job(_collect_params())
     except BadRequest as exc:
-        return jsonify(status="error", message=str(exc)), 400
+        return _error(str(exc), 400, f"The print request was invalid: {exc}")
     except PortResolutionError as exc:
-        return jsonify(status="error", message=str(exc)), 503
+        return _error(str(exc), 503, f"Could not find the printer. Check Bluetooth pairing. {exc}")
     except serial.SerialException as exc:
-        return jsonify(status="error", message=f"Serial error: {exc}"), 502
+        return _error(f"Serial error: {exc}", 502, "Could not connect to the printer. Check it is on and paired, then try again.")
     except Exception as exc:  # noqa: BLE001 -- surface unexpected errors to the caller
-        return jsonify(status="error", message=f"Unexpected error: {exc}"), 500
+        app.logger.exception("Unexpected print failure")
+        return _error(f"Unexpected error: {exc}", 500, "Printing failed unexpectedly. Open the last error or log from the tray icon.")
 
     return jsonify(status="ok", **result), 200
 

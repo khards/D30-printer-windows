@@ -1,5 +1,6 @@
 @echo off
 setlocal
+cd /d "%~dp0"
 
 where python >nul 2>nul
 if errorlevel 1 (
@@ -26,6 +27,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Registering the server to start when you sign in...
+venv\Scripts\python.exe startup.py install
+if errorlevel 1 (
+    echo Failed to register startup. See the error above.
+    pause
+    exit /b 1
+)
+
 echo.
-echo Setup complete. Double-click start_server.bat to start printing.
+echo Setup complete. The server will start when you sign in.
+echo Double-click start_server.bat to start printing now.
 pause

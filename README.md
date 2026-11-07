@@ -8,7 +8,26 @@ The print protocol was reverse-engineered by the
 [phomemo_d30](https://github.com/polskafan/phomemo_d30) project (by
 sniffing the "Print Master" Android app's Bluetooth traffic) and is
 reimplemented here in pure Python — no ImageMagick/Wand dependency, just
-`pyserial`, `Pillow`, and `Flask`.
+`pyserial`, `Pillow`, `Flask`, and `pystray`.
+
+## Update history
+
+### 7 November 2026
+
+- Added a notification-area icon for opening the print page, viewing errors
+  and logs, and quitting the server. Failed print requests also show a
+  Windows notification.
+- Added automatic server startup when the current Windows user signs in.
+- Improved automatic COM-port detection to find the paired D30's outgoing
+  Bluetooth serial port without probing unrelated devices.
+
+### 13 September 2026
+
+- Added an optional product name to batch and best-before labels.
+
+### 5 September 2026
+
+- Initial Windows printer tools and local print server.
 
 ## Quick start (no coding experience needed)
 
@@ -22,12 +41,17 @@ reimplemented here in pure Python — no ImageMagick/Wand dependency, just
 3. **Pair the D30** in Windows Bluetooth settings, if you haven't already
    (Settings > Bluetooth & devices > Add device).
 4. **Run setup** — double-click `setup.bat` in the extracted folder. This
-   installs everything needed and only has to be done once.
-5. **Start printing** — double-click `start_server.bat`. A window opens
-   showing the server running, and your browser opens a page where you can
-   type a label and click Print.
+   installs everything needed and registers the server to start when your
+   Windows user signs in. It only has to be done once.
+5. **Start printing** — after setup, double-click `start_server.bat` to
+   start the server immediately. A printer icon appears in the Windows
+   notification area and your browser opens a page where you can print.
 
-Leave that window open while printing; closing it stops the server. If a
+On later sign-ins, the server starts automatically in the notification
+area near the clock (it may be hidden behind the **^** arrow). Right-click
+the icon to open the print page, show the last print error, open the log,
+or quit. Open `http://localhost:8787/` in your browser to print. Don't start
+a second server if one is already running. If a
 label doesn't print, see [Troubleshooting](#troubleshooting) below — the
 most common issue is Windows not having actually connected the Bluetooth
 link yet (shows as "Driver is unavailable" in Bluetooth settings).
@@ -52,15 +76,16 @@ website.
 
 ## Usage
 
-`--port` is optional — if you omit it, the script scans Windows' listed
-COM ports for one that accepts data and uses it automatically:
+`--port` is optional — if you omit it, the script matches the paired
+Bluetooth device named `D30` to its outgoing serial (SPP) port using
+Windows device information. It does not send data to unrelated ports:
 
 ```powershell
 venv\Scripts\python print_text.py "Hello World!"
 ```
 
-Or specify it directly if you already know it (faster, and required if more
-than one port responds):
+Or specify it directly if your device has a different name or more than
+one D30 port is found:
 
 ```powershell
 venv\Scripts\python print_text.py "Hello World!" --port COM4
@@ -119,7 +144,8 @@ label size.
 ## Web API (for printing from a website)
 
 `server.py` runs a small local HTTP server with a single print endpoint
-and a docs/usage page. Double-click `start_server.bat`, or run it directly:
+and a docs/usage page. If it is not already running, double-click
+`start_server.bat`, or run it directly:
 
 ```powershell
 venv\Scripts\python server.py
@@ -143,8 +169,38 @@ It binds to `127.0.0.1` by default (this machine only, matches "runs on
 localhost"). There's no authentication, so only pass `--host 0.0.0.0` if
 you understand anyone on the network could then trigger a print.
 COM-port auto-detection happens per request, same as the CLI scripts — a
-request fails with a clear JSON error (not a hang) if nothing responds or
-more than one port does.
+request fails with a clear JSON error if no matching outgoing port is
+listed or more than one is found. Detection does not verify that the printer
+is powered on or connected; serial errors are reported when printing.
+
+### Windows startup
+
+`setup.bat` registers the server for the current Windows user, without
+administrator access. It starts in the notification area at sign-in, not
+before sign-in, and does not open a browser automatically. Keep the
+extracted project folder in place: the registration references its launcher,
+Python environment, `tray.py`, and `server.py`.
+If you move the folder, run `setup.bat` again from the new location.
+
+To disable automatic startup, run:
+
+```powershell
+venv\Scripts\python startup.py remove
+```
+
+To re-enable it without reinstalling dependencies, run
+`venv\Scripts\python startup.py install`. Removing the registration does
+not stop an already running server; right-click its tray icon and choose
+**Quit** to stop it.
+
+If a print request fails, the tray application displays a Windows
+notification; right-click the icon and choose **Show last print error** to
+see it again. Notifications may be hidden or suppressed by Windows, and
+the last error is cleared when the application restarts. The log can be
+opened from the icon menu. The server cannot confirm a label physically
+printed because the printer does not acknowledge print jobs. When running
+`server.py` directly rather than via the tray application, errors are
+returned to the HTTP caller but no tray notification is shown.
 
 ## Troubleshooting
 
@@ -225,8 +281,10 @@ one, or just try each with `print_text.py`.
 - `print_text.py` — CLI entry point for free-form text labels.
 - `print_batch_label.py` — CLI entry point for batch/best-before labels.
 - `server.py` — local HTTP API + docs page, for printing from a website.
+- `tray.py` — notification-area server, print error notifications and controls.
 - `find_port.py`, `debug_port.py` — connectivity diagnostics.
-- `setup.bat`, `start_server.bat` — double-click setup/run for Windows
+- `setup.bat`, `start_server.bat`, `startup.py`, `start_minimized.vbs` —
+  double-click setup/run and per-user sign-in registration for Windows
   users who don't want a terminal.
 
 ## Possible next steps

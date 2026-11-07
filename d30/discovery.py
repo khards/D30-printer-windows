@@ -1,15 +1,9 @@
-"""Locate the D30's COM port automatically.
-
-The D30 protocol is one-way -- it never sends anything back -- so "is this
-the right port" can't be answered by reading a reply. The best available
-signal is whether the OS accepts a write without timing out: a port with no
-live Bluetooth SPP connection behind it (e.g. the "Driver unavailable"
-case) blocks on write forever, which is exactly the freeze this was built
-to avoid. See debug_port.py for a step-by-step version of the same probe.
-"""
+"""Locate the D30's outgoing Bluetooth serial port on Windows."""
 
 from __future__ import annotations
 
+import re
+import sys
 from typing import List, NamedTuple, Optional
 
 import serial
@@ -60,8 +54,52 @@ class PortResolutionError(RuntimeError):
     """Raised by resolve_port() when no port, or more than one, is found."""
 
 
+def _windows_d30_ports() -> List[str]:
+    if sys.platform != "win32":
+        raise PortResolutionError("Automatic D30 discovery requires Windows; specify a COM port explicitly.")
+
+    import winreg
+
+    base = r"SYSTEM\CurrentControlSet\Enum\BTHENUM"
+    addresses = set()
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base) as root:
+            for index in range(winreg.QueryInfoKey(root)[0]):
+                name = winreg.EnumKey(root, index)
+                match = re.fullmatch(r"Dev_([0-9a-f]{12})", name, re.IGNORECASE)
+                if not match:
+                    continue
+                with winreg.OpenKey(root, name) as device:
+                    for child_index in range(winreg.QueryInfoKey(device)[0]):
+                        with winreg.OpenKey(device, winreg.EnumKey(device, child_index)) as instance:
+                            try:
+                                friendly_name = winreg.QueryValueEx(instance, "FriendlyName")[0]
+                            except FileNotFoundError:
+                                continue
+                            if isinstance(friendly_name, str) and friendly_name.strip().casefold() == "d30":
+                                addresses.add(match.group(1).upper())
+    except FileNotFoundError as exc:
+        raise PortResolutionError("Windows Bluetooth device information is unavailable; pair the D30 first.") from exc
+    except OSError as exc:
+        raise PortResolutionError(f"Unable to read Windows Bluetooth device information: {exc}") from exc
+
+    ports = set()
+    for port in list_ports.comports():
+        # Windows identifies outgoing SPP ports with the remote Bluetooth address;
+        # incoming ports instead have an all-zero address.
+        match = re.fullmatch(
+            r"BTHENUM\\\{00001101-0000-1000-8000-00805F9B34FB\}_LOCALMFG&[0-9A-F]+"
+            r"\\[^\\]*&([0-9A-F]{12})_C[0-9A-F]+",
+            port.hwid or "",
+            re.IGNORECASE,
+        )
+        if match and match.group(1).upper() in addresses:
+            ports.add(port.device)
+    return sorted(ports)
+
+
 def resolve_port(explicit: Optional[str], write_timeout: float = 2.0) -> str:
-    """Return `explicit` unchanged, or auto-detect a single working COM port.
+    """Return `explicit` unchanged, or find the D30's outgoing Windows COM port.
 
     Raises PortResolutionError (rather than exiting) on failure/ambiguity,
     so this is safe to call from a long-running process like the API
@@ -71,15 +109,14 @@ def resolve_port(explicit: Optional[str], write_timeout: float = 2.0) -> str:
     if explicit is not None:
         return explicit
 
-    working = find_port(write_timeout=write_timeout)
+    working = _windows_d30_ports()
     if not working:
         raise PortResolutionError(
-            "No COM port accepted the D30 init sequence. Check it's paired, powered on, and shows "
-            "'Connected' (not just 'Paired') in Windows Bluetooth settings."
+            "No outgoing Bluetooth COM port was found for a device named D30. Pair the printer "
+            "and check More Bluetooth settings > COM Ports, or specify the outgoing port explicitly."
         )
     if len(working) > 1:
         raise PortResolutionError(
-            f"Multiple ports responded: {', '.join(working)}. Specify one explicitly "
-            "(the D30 usually shows up as both an Outgoing and an Incoming port)."
+            f"Multiple outgoing D30 ports found: {', '.join(working)}. Specify one explicitly."
         )
     return working[0]
